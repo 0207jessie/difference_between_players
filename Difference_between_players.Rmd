@@ -1,0 +1,152 @@
+---
+title: "Class Test 1"
+author: "2565195L"
+output: 
+  pdf_document:
+        latex_engine: xelatex
+        number_sections: yes
+fig_caption: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = NA, message = FALSE, warning = FALSE)
+```
+
+```{r libraries, eval = TRUE, echo=FALSE, warning = FALSE, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(moderndive)
+library(skimr)
+library(kableExtra)
+library(gridExtra)
+library(MASS)
+library(readr)
+library(tidyr)
+```
+
+# The best player of modern day football, Lionel Messi or Ronaldo? 
+
+```{r data, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+data <- read_csv("GOAT.csv") %>%
+  dplyr:: select(Total.GI, Player)
+```
+
+```{r response and explanatory, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+y <- data$Total.GI
+x <- data$Player
+```
+
+## Introduction {#sec:intro}
+
+Over the last 10 years, many people have argued on the topic of who the best player in the modern football era is, there are two names that come up often in discussion, these are Cristiano Ronaldo and Lionel Messi. We will examine data set which contains information on on total goal involvements in a calendar year for each player, goal involvement referring to both goals scored and assistance provided. There are `r nrow(data)` goal involvements in this data set. We want to examine if there exists relationship between goal involvement and the player, that is, is there a difference in total goal involvement between Messi and Ronaldo.  
+
+Section \ref{sec:EA} contains summary statistics on total goal involvement for each player individually and a boxplot to explore the potential difference in relationship between total goal involvement and the players. A linear regression model will be fitted onto the data and the validity of modelling assumptions will be considered in Section \ref{sec:FA}. A conclusion of main findings will be in Section \ref{sec:con}. 
+
+## Exploratory Analysis {#sec:EA}
+
+```{r levels of factor, echo=FALSE, eval=TRUE, warning=FALSE, message=FALSE}
+baseline <- data[data$Player=="Ronaldo",]
+level <- data[data$Player=="Messi",]
+```
+
+Table \ref{tab:summary} contains summary statistics on total goal involvement for both levels of the factor (Ronaldo and Messi), player. Let us look at Messi's total goal involvement which has an average value of `r round(mean(level$Total.GI), 2)`, with the range of the middle 50% of data being from `r round(quantile(level$Total.GI, 0.25), 2)` to `r round(quantile(level$Total.GI, 0.75), 2)`. Now consider Ronaldo's total goal involvement, the average of total goal involvement is `r round(mean(baseline$Total.GI), 2)`, with the range of the middle 50% of data being `r round(quantile(baseline$Total.GI, 0.25), 2)` to `r round(quantile(baseline$Total.GI, 0.75), 2)`. The median and mean for both players is similar in value, this suggests that **if** outliers are present they are not distorting the distribution of the data. By inspection of the standard deviation (SD), there is also more variability in total goal involvements for Messi than Ronaldo.
+
+```{r summary, echo=FALSE, eval=TRUE, warning=FALSE, message=FALSE}
+my_skim <- skim_with(numeric=sfl(hist=NULL))
+data %>%
+  group_by(Player) %>%
+  my_skim() %>%
+  dplyr:: select(-skim_type) %>%
+  kable(col.names = c("Variable","Player" ,"Missing", "Complete Rate", "Mean", "SD", "Min.", "1st Q.", "Median", "3nd Q.", "Max." ), caption = '\\label{tab:summary} Summary statistics on total goal involvement for each player.', booktabs=TRUE, format = "latex", digits=2) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+```
+
+Figure \ref{fig:box} displays a boxplot which shows the distribution of total goal involvement across the players considered. The median of Messi is slightly higher for total goal involvement in comparison to Ronaldo. There is a lot of overlap in the total goal involvement values which lie in the middle 50% of all values for each of the two players. The boxplot suggests that Messi has less variability in total goal involvement per caldendar year compared to Ronaldo, that is, Messi is more consistent in total goal involvement per calender year than Ronaldo is. However, there are two very clear outliers for Messi, one of them is above the upper whisker and the other is below the lower whisker. In this context, Messi must have had very high total goal involvement for one calender year in comparison to the other calender years and one very low total goal involvement for one calender year in comparison to other calender years. We should investigate these outliers and we may remove them from our data set if neccessary.
+
+```{r boxplot, echo=FALSE, eval=TRUE, warning=FALSE, message=FALSE, fig.cap="\\label{fig:box} Relationship between total goal involvement and player.", out.width='80%', fig.pos="H"}
+ggplot(data, aes(x=Player, y=Total.GI))+
+  geom_boxplot(fill="lightblue")+
+  labs(x="Player", y="Total Goal Involvement")
+```
+
+**Note** : We cannot calculate the correlation coefficient to gauge the strength of the potential relationship between the total goal involvement and the players as the explanatory variable is not numeric in this case.
+
+We shall now fit a linear regression model to the data to formally assess the relationship between total goal involvement and the players.  
+
+## Formal Analysis {#sec:FA}
+
+```{r model and coefficients, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+model <- lm(Total.GI~Player, data=data)
+coefs <- round(coef(model),2)
+```
+
+The linear regression model that will be fitted to the data is:
+
+$$\mbox{Total goal involvement} = \alpha + \beta_{\mbox{Ronaldo}} \cdot \mathbb{I}_{\mbox{Ronaldo}}(x) +\epsilon, ~~~ \epsilon \sim N(0, \sigma^2) $$
+where 
+
+* the intercept of the regression model is denoted by $\alpha$, representing the mean of total goal involvement for our baseline player, Messi;
+
+* $\beta_{\mbox{Ronaldo}}$ is the difference in the mean of total goal involvement for Ronaldo relative to Messi;
+
+* $\epsilon$ denotes the random error which follows a normal distribution with mean zero and constant variance;
+
+* $\mathbb{I}_{\mbox{Ronaldo}}(x)$ is an indicator function such that 
+
+$$\mathbb{I}_{\mbox{Ronaldo}}(x)=\left\{
+                \begin{array}{ll}
+                  1 ~~~ \mbox{if total goal involvement of} ~x\mbox{th observation is from Ronaldo},\\
+                  0 ~~~ \mbox{Otherwise}.\\
+                \end{array}
+                \right.$$
+Table \ref{tab:estimate} displays the estimated intercept and slope parameters of the best-fitting line from the regression model. Hence, the best-fitting line is:
+
+$$\widehat{\mbox{Total goal involvement}}=`r coefs[1]` `r coefs[2]`\cdot\mathbb{I}_{\mbox{Ronaldo}}(x)$$  
+
+That is, the expected number of total goal involvements in a calender year for Messi is `r coefs[1]`, the expected difference in total goal involvements for Ronaldo relative to Messi is `r coefs[2]`, since this expected difference is negative, total goal involvement is expected to lower for Ronaldo than Messi. The total goal involvement per calendar year for Ronaldo is expected to be 58.11. This agrees with the exploratory analysis carried out in Section \ref{sec:EA}, that is, there is a relationship between total goal involvement and the player and that Messi is expected to have a higher total goal involvement than Ronaldo. 
+
+```{r estimates, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+get_regression_table(model)[,1:2] %>%
+  kable(col.names = c("Term", "Estimate"), caption="\\label{tab:estimate} Estimates of the intercept and slope from the fitted linear regression model.", booktabs=TRUE, format = "latex", digits=2) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+```
+
+```{r residual, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+regression_points <- get_regression_points(model)
+```
+
+Now we shall consider the diagnostic plots for linear regression, that is, investigate if assumptions of the linear model are satisfied. 
+
+Figure \ref{fig:residual_scat} shows the scatterplot of the residuals against each player .For both players, there is no obvious pattern in the residuals, there seems to be an even random scatter of residuals above and below the zero line, therefore, assumption of mean zero seems to be satisfied. Variability does not seem completely constant across the two levels of the categorical variable, there appears to be more variability for Messi than there is for Ronaldo, this agrees with Figure \ref{fig:box} in Section \ref{sec:EA}. However this difference in variability is not so large that we are particularly concerned. The assumption of constant variance does appear to be relatively satisfied. 
+
+```{r scatterplot of residuals, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="\\label{fig:residual_scat} Scatterplot of residuals against each player, original plot (top), jitter plot(bottom).", out.width='80%', fig.pos="H"}
+
+p1 <- ggplot(regression_points, aes(x=Player, y=residual))+
+  geom_point()+
+  labs(x="Player", y="Residual")+
+  geom_hline(yintercept = 0, col="blue")
+
+p2 <- ggplot(regression_points, aes(x=Player, y=residual))+
+  geom_jitter(width=0.1)+
+  labs(x="Player", y="Residual")+
+  geom_hline(yintercept = 0, col="blue")
+
+grid.arrange(p1, p2, ncol=1)
+```
+
+**Note**: we have jittered the points in order to see the residuals for each player more clearly. 
+
+Figure \ref{fig:hist} displays a histogram of the residuals which can be used to assess whether residuals are normally distributed. 
+
+Here the histogram seems to be centered around zero, there is no obvious skew, and the histogram is relatively bell-shaped. Hence, the assumption of normality of errors appears to be satisfied for this regression model. 
+
+```{r histogram of residuals, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="\\label{fig:hist} Histogram of residuals", out.width='80%', fig.pos="H"}
+ggplot(regression_points, aes(x=residual))+
+  geom_histogram(colour="white", fill="lightblue", bins=60)+
+  labs(x="Residuals")
+```
+
+## Conclusions {#sec:con}
+
+There has been a lot of debate over whether Cristiano Ronaldo or Lionel Messi is the best player of football in the modern era, if we only consider total goal involvement which consists of total goals scored and total assistances provided, for each calendar year for each player, it seems that there is a difference between the players. From the fitted regression model, the expected difference in total goal involvement is `r coefs[2]` for Ronaldo relative to Messi. That is, on average, Ronaldo is expected to have less total goal involvements than Messi.
+
